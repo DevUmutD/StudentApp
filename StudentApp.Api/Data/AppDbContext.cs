@@ -11,5 +11,12 @@ namespace StudentApp.Api.Data
         }
 
         public DbSet<StudentEntity> Students { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StudentEntity>()
+                .HasIndex(s => s.studentNo)
+                .IsUnique();
+        }
     }
 }
