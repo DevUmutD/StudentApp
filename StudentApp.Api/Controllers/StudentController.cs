@@ -22,6 +22,7 @@ namespace StudentApp.Api.Controllers
         public async Task<IActionResult> GetStudents()
         {
             var students = await Context.Students.ToListAsync();
+
             return Ok(students);
         }
 
@@ -29,13 +30,30 @@ namespace StudentApp.Api.Controllers
         public async Task<IActionResult> GetStudent([FromRoute] int id)
         {
             var student = await Context.Students.FirstOrDefaultAsync(p => p.Id == id);
-            if (student == null) return NotFound();
+
+            if (student is null)
+            {
+                return NotFound();
+            }
+
             return Ok(student);
         }
+
         [HttpPost]
         public async Task<IActionResult> CreateStudent([FromBody] StudentEntity student)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var num = await Context.Students
+                .AnyAsync(s => s.studentNo == student.studentNo);
+
+            if (num)
+            {
+                return Conflict(new { message = "Bu öğrenci numarası zaten kayıtlı." });
+            }
 
             await Context.Students.AddAsync(student);
             await Context.SaveChangesAsync();
@@ -46,19 +64,33 @@ namespace StudentApp.Api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateStudent([FromRoute] int id, [FromBody] StudentEntity student)
         {
-            if (id != student.Id) return BadRequest("ID eşleşmiyor.");
+            if (id != student.Id)
+            {
+                return BadRequest("ID eşleşmiyor.");
+            }
 
-            var existingStudent = await Context.Students.FindAsync(id);
-            if (existingStudent is null) return NotFound();
+            var numStudent = await Context.Students.FindAsync(id);
+            if (numStudent is null)
+            {
+                return NotFound();
+            }
 
-            existingStudent.studentName = student.studentName;
-            existingStudent.studentSurname = student.studentSurname;
-            existingStudent.studentNo = student.studentNo;
-            existingStudent.studentClass = student.studentClass;
+            var exists = await Context.Students
+                .AnyAsync(s => s.studentNo == student.studentNo && s.Id != id);
+
+            if (exists)
+            {
+                return Conflict(new { message = "Bu öğrenci numarası başka bir öğrenciye ait." });
+            }
+
+            numStudent.studentName = student.studentName;
+            numStudent.studentSurname = student.studentSurname;
+            numStudent.studentNo = student.studentNo;
+            numStudent.studentClass = student.studentClass;
 
             await Context.SaveChangesAsync();
 
-            return Ok(student);
+            return Ok(numStudent);
         }
 
         [HttpDelete("{id}")]
@@ -66,9 +98,12 @@ namespace StudentApp.Api.Controllers
         {
             var student = await Context.Students.FindAsync(id);
             if (student == null)
+            {
                 return NotFound();
+            }
 
             Context.Students.Remove(student);
+
             await Context.SaveChangesAsync();
 
             return Ok();

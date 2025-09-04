@@ -101,7 +101,6 @@
     <div class="container">
         <h1 class="text-center mb-4" style="color: #dc3545;">Öðrenci Yönetim Sistemi</h1>
 
-        <!-- Sayfa Geçiþ Butonlarý -->
         <div class="d-flex justify-content-center mb-4">
             <div class="btn-group" role="group">
                 <button type="button" class="btn btn-red" id="showAddFormBtn">Öðrenci Ekle</button>
@@ -109,10 +108,8 @@
             </div>
         </div>
 
-        <!-- Mesaj Alaný -->
         <div class="message-area" id="messageArea"></div>
 
-        <!-- Öðrenci Ekleme Formu -->
         <div class="card mb-5" id="addSection">
             <div class="card-body form-container">
                 <h2 class="card-title text-center mb-4">Öðrenci Ekle</h2>
@@ -142,7 +139,6 @@
             </div>
         </div>
 
-        <!-- Öðrenci Güncelleme Formu -->
         <div class="card mb-5" id="updateSection" style="display: none;">
             <div class="card-body form-container">
                 <h2 class="card-title text-center mb-4">Öðrenci Güncelle</h2>
@@ -173,7 +169,6 @@
             </div>
         </div>
 
-        <!-- Öðrenci Listesi -->
         <div class="card" id="listSection" style="display: none;">
             <div class="card-body list-container">
                 <div class="search-container">
@@ -203,7 +198,6 @@
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -225,7 +219,197 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-       
+
+        let deleteId = null;
+
+        const addSection = document.getElementById('addSection');
+        const updateSection = document.getElementById('updateSection');
+        const listSection = document.getElementById('listSection');
+        const studentList = document.getElementById('studentList');
+        const messageArea = document.getElementById('messageArea');
+
+        const API_URL = 'https://localhost:7189/api/Student';
+
+        document.getElementById('showAddFormBtn').addEventListener('click', () => {
+            showSection('add');
+        });
+
+        document.getElementById('showListBtn').addEventListener('click', () => {
+            showSection('list');
+            renderStudentList();
+        });
+
+        document.getElementById('addStudentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const studentName = document.getElementById('studentName').value.trim();
+            const studentSurname = document.getElementById('studentSurname').value.trim();
+            const studentNo = document.getElementById('studentNo').value.trim();
+            const studentClass = document.getElementById('studentClass').value.trim();
+
+            if (!studentName || !studentSurname || !studentNo || !studentClass) return;
+
+            const newStudent = { studentName, studentSurname, studentNo, studentClass };
+
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newStudent)
+            });
+
+            if (res.ok) {
+                this.reset();
+                showMessage('Öðrenci baþarýyla eklendi.', 'success');
+            } else {
+                const data = await res.json();
+                showMessage(data.message || 'Öðrenci eklenemedi.', 'danger');
+            } 
+
+        });
+
+        document.getElementById('updateStudentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const id = document.getElementById('updateStudentId').value;
+            const studentName = document.getElementById('updateStudentName').value.trim();
+            const studentSurname = document.getElementById('updateStudentSurname').value.trim();
+            const studentNo = document.getElementById('updateStudentNo').value.trim();
+            const studentClass = document.getElementById('updateStudentClass').value.trim();
+
+            const updatedStudent = { id, studentName, studentSurname, studentNo, studentClass };
+
+            const res = await fetch(`${API_URL}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedStudent)
+            });
+
+            if (res.ok) {
+                showMessage('Öðrenci bilgileri güncellendi.', 'success');
+                showSection('list');
+                renderStudentList();
+            } else {
+                const data = await res.json();
+                showMessage(data.message || 'Güncelleme baþarýsýz.', 'danger');
+            }
+        });
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async function () {
+            if (deleteId == null) return;
+
+            const res = await fetch(`${API_URL}/${deleteId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                showMessage('Öðrenci silindi.', 'danger');
+                renderStudentList();
+            } else {
+                showMessage('Silme baþarýsýz.', 'danger');
+            }
+
+            deleteId = null;
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+            modal.hide();
+        });
+
+        document.getElementById('searchBox').addEventListener('input', function () {
+            renderStudentList(this.value);
+        });
+
+        async function renderStudentList(filter = '') {
+            studentList.innerHTML = '';
+
+            const res = await fetch(API_URL);
+            if (!res.ok) {
+                studentList.innerHTML = '<tr><td colspan="6" class="text-center">Liste alýnamadý.</td></tr>';
+                return;
+            }
+
+            const data = await res.json();
+
+            let filtered = data;
+            if (filter) {
+                filtered = data.filter(s =>
+                    s.studentName.toLowerCase().includes(filter.toLowerCase()) ||
+                    s.studentSurname.toLowerCase().includes(filter.toLowerCase()) ||
+                    s.studentNo.includes(filter)
+                );
+            }
+
+            if (filtered.length === 0) {
+                studentList.innerHTML = '<tr><td colspan="6" class="text-center">Kayýtlý öðrenci bulunamadý.</td></tr>';
+                return;
+            }
+
+            filtered.forEach((s, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <th scope="row">${index + 1}</th>
+                    <td>${s.studentName}</td>
+                    <td>${s.studentSurname}</td>
+                    <td>${s.studentNo}</td>
+                    <td>${s.studentClass}</td>
+                    <td>
+                        <button class="btn btn-sm btn-black me-2" onclick="editStudent(${s.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-red" data-bs-toggle="modal" data-bs-target="#deleteModal" onclick="setDeleteId(${s.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                studentList.appendChild(row);
+            });
+        }
+
+        function setDeleteId(id) {
+            deleteId = id;
+        }
+
+        window.editStudent = async function (id) {
+            const res = await fetch(`${API_URL}/${id}`);
+            if (!res.ok) return;
+            const student = await res.json();
+
+            document.getElementById('updateStudentId').value = student.id;
+            document.getElementById('updateStudentName').value = student.studentName;
+            document.getElementById('updateStudentSurname').value = student.studentSurname;
+            document.getElementById('updateStudentNo').value = student.studentNo;
+            document.getElementById('updateStudentClass').value = student.studentClass;
+
+            showSection('update');
+        };
+
+        function showSection(section) {
+            addSection.style.display = 'none';
+            updateSection.style.display = 'none';
+            listSection.style.display = 'none';
+
+            if (section === 'add') addSection.style.display = 'block';
+            else if (section === 'update') updateSection.style.display = 'block';
+            else if (section === 'list') listSection.style.display = 'block';
+        }
+
+        function showMessage(message, type = 'success') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.role = 'alert';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            messageArea.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            showSection('add');
+        });
     </script>
+
 </body>
 </html>

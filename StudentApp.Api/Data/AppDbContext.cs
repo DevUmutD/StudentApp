@@ -14,6 +14,8 @@ namespace StudentApp.Api.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<StudentEntity>()
                 .HasIndex(s => s.studentNo)
                 .IsUnique();
